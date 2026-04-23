@@ -4,7 +4,7 @@ import shutil
 from sqlalchemy import func
 import uuid
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form, Request, status
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
@@ -15,12 +15,16 @@ from pydantic import BaseModel
 from app.api.auth import get_current_user
 from app.api.users import UserProfileResponse
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 UPLOAD_DIR = "uploads/receipts"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Router ကို သတ်မှတ်ခြင်း
 router = APIRouter(prefix="/api/user-auth", tags=["User Actions & Auth"])
 
+limiter = Limiter(key_func=get_remote_address)
 # --- Pydantic Models (Schemas) ---
 class UserRegister(BaseModel):
     username: str
@@ -187,14 +191,46 @@ async def place_bet(bet: BetRequest, current_user: models.User = Depends(get_cur
     return {"message": "Bet placed successfully!", "new_balance": current_user.balance}
 
 @router.post("/deposit")
+@limiter.limit("3/minute")
+
 async def create_deposit(
+    request: Request, # 🌟 slowapi က IP ကို ဖမ်းဖို့ ဒီ request လေး မပါမဖြစ် လိုပါတယ်
     amount: float = Form(...),
     bank: str = Form(...),
     ref_id: str = Form(...),
     receipt: UploadFile = File(...), 
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
-):
+    ):
+    
+    # ==========================================
+    # 🛡️ Security Validation စစ်ဆေးခြင်း အပိုင်း
+    # ==========================================
+    
+    # 🌟 ၁။ ငွေပမာဏကို စစ်ဆေးခြင်း (သုညထက် ကြီးရမည်)
+    if amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid amount! Deposit amount must be greater than zero."
+        )
+
+    # 🌟 ၂။ ဖိုင်အမျိုးအစား စစ်ဆေးခြင်း (Image သီးသန့်သာ လက်ခံမည်)
+    if not receipt.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type! Please upload a valid image (JPG, PNG, etc.)."
+        )
+
+    # 🌟 ၃။ (Optional) ဖိုင်အရွယ်အစား စစ်ဆေးခြင်း (ဥပမာ 5MB ထက် မကျော်ရ)
+    file_contents = await receipt.read()
+    if len(file_contents) > 5 * 1024 * 1024:  # 5 MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File is too large! Maximum allowed size is 5MB."
+        )
+    await receipt.seek(0) # ဖိုင်ကို အစကနေ ပြန်ဖတ်လို့ရအောင် Reset ပြန်လုပ်ပေးခြင်း
+
+    # ==========================================
     try:
         # ၁။ ပုံ၏ Extension ကို ယူခြင်း (ဥပမာ .jpg, .png)
         file_extension = os.path.splitext(receipt.filename)[1] if receipt.filename else ".jpg"
