@@ -29,7 +29,7 @@ models.Base.metadata.create_all(bind=engine)
 origins = [
     "http://localhost:5173",  # React Dev Server
     "http://127.0.0.1:5173",  # React Dev Server (Alternative)
-    "https://https://png-3d-lottery.vercel.app/"
+    "https://png-3d-lottery.vercel.app/"
     # 💡 နောင်တစ်ချိန် Live လွှင့်တဲ့အခါ "https://www.your-lottery-website.com" စသဖြင့် ဒီမှာ လာတိုးရပါမည်
 ]
 
