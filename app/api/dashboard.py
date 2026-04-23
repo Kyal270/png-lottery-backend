@@ -26,6 +26,15 @@ class PayoutRequest(BaseModel):
     winning_number: str
     auth_code: str
 
+# Pydantic Models
+class BankCreate(BaseModel):
+    name: str
+    account_name: str
+    account_no: str
+
+class BankResponse(BankCreate):
+    id: int
+
 # ---------------------------------------------------------
 # API Routes များ
 # ---------------------------------------------------------
@@ -130,3 +139,27 @@ def get_next_draw(
         return {"next_draw_id": next_draw_id}
     except Exception as e:
         return {"next_draw_id": "DRAW-001"} # Error တက်ရင် ပုံမှန်အတိုင်းပြန်ထားမည်
+    
+    # [GET] User များ Bank List လှမ်းယူရန် (Admin စစ်စရာမလိုပါ)
+@router.get("/banks", response_model=List[BankResponse])
+def get_banks(db: Session = Depends(get_db)):
+    return db.query(models.AdminBank).all()
+
+# [POST] Admin မှ Bank အသစ်ထည့်ရန်
+@router.post("/banks", response_model=BankResponse)
+def add_bank(bank: BankCreate, db: Session = Depends(get_db), admin: models.User = Depends(get_admin_user)):
+    new_bank = models.AdminBank(**bank.dict())
+    db.add(new_bank)
+    db.commit()
+    db.refresh(new_bank)
+    return new_bank
+
+# [DELETE] Admin မှ Bank ပြန်ဖျက်ရန်
+@router.delete("/banks/{bank_id}")
+def delete_bank(bank_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_admin_user)):
+    bank = db.query(models.AdminBank).filter(models.AdminBank.id == bank_id).first()
+    if not bank:
+        raise HTTPException(status_code=404, detail="Bank not found")
+    db.delete(bank)
+    db.commit()
+    return {"message": "Bank deleted successfully"}
