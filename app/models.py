@@ -76,3 +76,12 @@ class Transaction(Base):
     
     status = Column(String, default="pending")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # 🌟 AdminBank က Transaction ရဲ့ အောက်ထဲမှာ ဝင်မနေရပါ။ အရှေ့ဆုံး (ဘယ်ဘက်အစွန်ဆုံး) မှာ ကပ်နေရပါမည်။
+class AdminBank(Base):
+    __tablename__ = "admin_banks"
+
+    id = Column(Integer, primary_key=True, index=True) # 🌟 primary_key=True ပါရပါမည်
+    name = Column(String, index=True)
+    account_name = Column(String)
+    account_no = Column(String)             # ဥပမာ - 123-456-7890
