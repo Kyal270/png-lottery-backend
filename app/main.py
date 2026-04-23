@@ -7,6 +7,15 @@ from app.api import auth, dashboard, deposits, withdrawals, financials, history,
 from app.api import user_auth, admin_api
 import os
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware # 🌟 CORS အတွက် Import လုပ်ပါ
+
+# 🌟 slowapi အတွက် လိုအပ်သည်များ Import လုပ်ခြင်း
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# 🌟 Limiter ကို ကြေညာပါမည် (User ရဲ့ IP Address ပေါ်မူတည်ပြီး မှတ်သားပါမည်)
+limiter = Limiter(key_func=get_remote_address)
 
 os.makedirs("uploads", exist_ok=True)
 
@@ -14,14 +23,29 @@ os.makedirs("uploads", exist_ok=True)
 app = FastAPI(title="PNG 3D Lottery API", version="1.0.0")
 models.Base.metadata.create_all(bind=engine)
 
+# ==========================================
+# 🛡️ CORS Policy သတ်မှတ်ခြင်း 🌟
+# ==========================================
+origins = [
+    "http://localhost:5173",  # React Dev Server
+    "http://127.0.0.1:5173",  # React Dev Server (Alternative)
+    "https://https://png-3d-lottery.vercel.app/"
+    # 💡 နောင်တစ်ချိန် Live လွှင့်တဲ့အခါ "https://www.your-lottery-website.com" စသဖြင့် ဒီမှာ လာတိုးရပါမည်
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=origins,   # 🌟 အပေါ်မှာ ရေးထားတဲ့ လင့်ခ်တွေကိုပဲ ခွင့်ပြုမည်
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],     # GET, POST, DELETE စသည်တို့ကို အကုန်ခွင့်ပြုမည်
+    allow_headers=["*"],     # Token တွေပို့မည့် Headers များကို ခွင့်ပြုမည်
 )
+# ==========================================
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# 🌟 FastAPI App ထဲသို့ Limiter ကို ထည့်သွင်းခြင်း
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 🌟 Router ကို App ထဲသို့ တပ်ဆင်ခြင်း
 app.include_router(auth.router)
