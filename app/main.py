@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app import models
 from app.api import auth, dashboard, deposits, withdrawals, financials, history, users, winners
-from app.api import user_auth, admin_api
+from app.api import user_auth, admin_api, spin_wheel
 import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware # 🌟 CORS အတွက် Import လုပ်ပါ
@@ -29,8 +29,6 @@ models.Base.metadata.create_all(bind=engine)
 origins = [
     "http://localhost:5173",  # React Dev Server
     "http://127.0.0.1:5173",  # React Dev Server (Alternative)
-    "https://png-3d-lottery.vercel.app",
-    "https://png-lottery-api.onrender.com",
     # 💡 နောင်တစ်ချိန် Live လွှင့်တဲ့အခါ "https://www.your-lottery-website.com" စသဖြင့် ဒီမှာ လာတိုးရပါမည်
 ]
 
@@ -52,6 +50,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth.router)
 app.include_router(user_auth.router)
 # 🌟 Dashboard API လမ်းကြောင်းကို တပ်ဆင်လိုက်ပါပြီ
+app.include_router(spin_wheel.router)
 app.include_router(dashboard.router)
 app.include_router(deposits.router)
 app.include_router(withdrawals.router)
