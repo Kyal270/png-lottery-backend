@@ -1,5 +1,5 @@
 import uuid # 🌟 uuid ကို import လုပ်ပါမည်
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from app.database import Base
 from datetime import datetime, timezone
 
@@ -13,24 +13,28 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    
-    # 🌟 UI တွင်ပြသမည့် User Code အသစ် (ဥပမာ USR-9A2F5C)
     user_code = Column(String, unique=True, index=True, default=lambda: generate_custom_id("USR"))
-    
     username = Column(String, unique=True, index=True)
     phone_number = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String)
     
-    # User အချက်အလက်များ
+    # 🏦 Bank အချက်အလက်များ
     bank_name = Column(String, nullable=True)
     bank_account_name = Column(String, nullable=True)
     bank_account_number = Column(String, nullable=True)
-    referral_code = Column(String, nullable=True)
     
-    balance = Column(Float, default=0.0)
+    # 🎁 Marketing & Bonus အချက်အလက်များ (အသစ်ထည့်သွင်းမှု)
+    referred_by = Column(String, nullable=True)             
+    locked_spin_bonus = Column(Float, default=0.0)          
+    is_first_deposit_done = Column(Boolean, default=False)  
+    
+    # 💰 ငွေစာရင်းများ (Balance ခွဲထုတ်ခြင်း)
+    balance = Column(Float, default=0.0)       # ပင်မ ငွေစာရင်း (Withdraw လုပ်ခွင့်ရှိသည်)
+    bonus_balance = Column(Float, default=0.0) # ဘောနပ်စ် ငွေစာရင်း (လောင်းရန်သက်သက်)
+
     role = Column(String, default="user")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
+    
 class Ticket(Base):
     __tablename__ = "tickets"
 
