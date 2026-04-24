@@ -79,11 +79,14 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
     new_user = models.User(
         username=user.username,
         phone_number=user.phone_number,
-        hashed_password=get_password_hash(user.password), # 🌟 ပြင်ဆင်ထားသည်
+        hashed_password=get_password_hash(user.password), 
         bank_name=user.bank_name,
         bank_account_name=user.bank_account_name,
         bank_account_number=user.bank_account_number,
-        referral_code=user.referral_code,
+        
+        # 🌟 ပြင်ဆင်ချက်: referral_code အစား referred_by သို့ သိမ်းပါမည်
+        referred_by=user.referral_code, 
+        
         balance=0.0,
         role="user"
     )
@@ -94,12 +97,28 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login")
 async def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
-    if not db_user or not verify_password(user.password, db_user.hashed_password): # 🌟 ပြင်ဆင်ထားသည်
+    if not db_user or not verify_password(user.password, db_user.hashed_password): 
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     # Token ထုတ်ပေးခြင်း
-    token = create_access_token(data={"sub": db_user.username, "role": db_user.role}) # 🌟 ပြင်ဆင်ထားသည်
-    return {"access_token": token, "username": db_user.username}
+    token = create_access_token(data={"sub": db_user.username, "role": db_user.role}) 
+    
+    # 🌟 အသစ်ထပ်တိုးမည့် Logic (လှည့်ဖို့ လို/မလို စစ်ဆေးခြင်း)
+    needs_spin = False
+    
+    # getattr ကိုသုံးထားတာက Database ထဲမှာ တကယ်လို့ သုည (သို့) False မရှိခဲ့ရင် Error မတက်အောင် ကာကွယ်ထားတာပါ
+    locked_bonus = getattr(db_user, "locked_spin_bonus", 0.0)
+    is_first_deposit = getattr(db_user, "is_first_deposit_done", False)
+    
+    # ပိုက်ဆံလည်း မသွင်းရသေးဘူး၊ Spin Bonus ကလည်း သုည ဖြစ်နေတယ် (မလှည့်ရသေးဘူး) ဆိုရင် လှည့်ခိုင်းမည်
+    if locked_bonus == 0.0 and not is_first_deposit:
+        needs_spin = True
+
+    return {
+        "access_token": token, 
+        "username": db_user.username,
+        "needs_spin": needs_spin  # 🌟 React ဆီသို့ အချက်ပြမည့် Data
+    }
 
 # ==========================================
 #             ACTION ENDPOINTS
@@ -160,7 +179,9 @@ def get_dashboard_data(current_user: models.User = Depends(get_current_user), db
             "currency": "PGK",
             "bank_name": current_user.bank_name,
             "bank_account_name": current_user.bank_account_name,
-            "bank_account_number": current_user.bank_account_number
+            "bank_account_number": current_user.bank_account_number,
+            "bonus_balance": current_user.bonus_balance,           # 🌟 ဒါလေးတွေ ထပ်တိုးပေးရပါမယ်
+            "locked_spin_bonus": current_user.locked_spin_bonus    # 🌟 ဒါလေးတွေ ထပ်တိုးပေးရပါမယ်
         },
         "tickets": ticket_list,
         "transactions": txn_list,
